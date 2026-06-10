@@ -1,3 +1,5 @@
+// models/product.ts
+
 import { model, Schema } from 'mongoose';
 
 export interface IProduct {
