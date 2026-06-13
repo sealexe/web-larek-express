@@ -1,3 +1,5 @@
+// errors/bad-reques-error.ts
+
 class BadRequestError extends Error {
   public statusCode: number;
 

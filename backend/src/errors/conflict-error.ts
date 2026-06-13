@@ -1,3 +1,5 @@
+// errors/conflict-error.ts
+
 class ConflictError extends Error {
   public statusCode: number;
 

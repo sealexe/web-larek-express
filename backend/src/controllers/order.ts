@@ -1,56 +1,54 @@
-import { Request, Response } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { faker } from '@faker-js/faker';
 import PAYMENT_METHODS from '../utils/constants';
 import Product from '../models/product';
+import BadRequestError from '../errors/bad-request-error';
 
-const postOrder = (req: Request, res: Response) => {
+const postOrder = (req: Request, res: Response, next: NextFunction) => {
   const {
     payment, email, phone, address, total, items,
   } = req.body;
 
   if (!Array.isArray(items) || items.length === 0) {
-    res.status(400).send({ message: 'Произошла ошибка' });
+    next(new BadRequestError('Список товаров пустой или не является массивом'));
     return;
   }
 
   if (!payment || !email || !phone || !address || total === undefined) {
-    res.status(400).send({ message: 'Произошла ошибка' });
+    next(new BadRequestError('Не заполнены обязательные поля заказа'));
     return;
   }
 
   if (typeof payment !== 'string' || !PAYMENT_METHODS.includes(payment)) {
-    res.status(400).send({ message: 'Произошла ошибка' });
+    next(new BadRequestError('Недопустимый способ оплаты'));
     return;
   }
 
   if (!items.every((item) => mongoose.Types.ObjectId.isValid(item))) {
-    res.status(400).send({ message: 'Произошла ошибка' });
+    next(new BadRequestError('Некорректный идентификатор товара'));
     return;
   }
 
   Product.find({ _id: { $in: items } })
     .then((products) => {
       if (items.length !== products.length) {
-        res.status(400).send({ message: 'Произошла ошибка' });
-        return;
+        return next(new BadRequestError('Один или несколько товаров не найдены'));
       }
 
       if (products.some((product) => product.price === null)) {
-        res.status(400).send({ message: 'Произошла ошибка' });
-        return;
+        return next(new BadRequestError('Один или несколько товаров недоступны для покупки'));
       }
 
       const totalPrice = products.reduce((sum, current) => sum + current.price!, 0);
 
       if (total !== totalPrice) {
-        res.status(400).send({ message: 'Произошла ошибка' });
-        return;
+        return next(new BadRequestError('Итоговая сумма заказа не совпадает'));
       }
 
-      res.status(201).send({ id: faker.string.uuid(), total: totalPrice });
+      return res.status(201).send({ id: faker.string.uuid(), total: totalPrice });
     })
-    .catch(() => res.status(500).send({ message: 'Произошла ошибка' }));
+    .catch(next);
 };
 
 export default postOrder;

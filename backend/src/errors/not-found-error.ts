@@ -1,3 +1,5 @@
+// errors/not-found-error.ts
+
 class NotFoundError extends Error {
   public statusCode: number;
 
