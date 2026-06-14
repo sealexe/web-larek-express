@@ -90,3 +90,23 @@ export const login = (req: Request, res: Response, next: NextFunction) => {
     })
     .catch(next);
 };
+
+export const logout = (req: Request, res: Response, next: NextFunction) => {
+  const cookie = req.cookies.refreshToken;
+  User.findOneAndUpdate(
+    { 'tokens.token': cookie },
+    { $pull: { tokens: { token: cookie } } },
+  )
+    .then((success) => {
+      if (!success) {
+        return next(new BadRequestError('Ошибка выхода'));
+      }
+      res.clearCookie('refreshToken');
+      return res.status(200).send(
+        {
+          success: true,
+        },
+      );
+    })
+    .catch(next);
+};

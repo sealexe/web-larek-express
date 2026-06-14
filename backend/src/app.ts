@@ -1,6 +1,7 @@
 // app.ts
 
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import path from 'path';
@@ -14,6 +15,7 @@ import BadRequestError from './errors/bad-request-error';
 import { requestLogger, errorLogger, logger } from './middlewares/logger';
 
 const app = express();
+app.use(cookieParser());
 app.use(cors({
   origin: 'http://localhost:5173',
   credentials: true,
