@@ -10,7 +10,6 @@ import { AUTH_ACCESS_TOKEN_EXPIRY, AUTH_REFRESH_TOKEN_EXPIRY, JWT_SECRET } from 
 import User from '../models/user';
 import ConflictError from '../errors/conflict-error';
 import BadRequestError from '../errors/bad-request-error';
-import UnauthorizedError from '../errors/unauthorized-error';
 
 export const register = (req: Request, res: Response, next: NextFunction) => {
   const { name, email, password } = req.body;
@@ -24,7 +23,7 @@ export const register = (req: Request, res: Response, next: NextFunction) => {
       password: hash,
     }))
     .then((user) => {
-      const accessToken = jwt.sign({ _id: user._id }, JWT_SECRET, { expiresIn: AUTH_ACCESS_TOKEN_EXPIRY as ms.StringValue || '1m' });
+      const accessToken = jwt.sign({ _id: user._id }, JWT_SECRET, { expiresIn: AUTH_ACCESS_TOKEN_EXPIRY as ms.StringValue || '10m' });
       const refreshToken = jwt.sign({ _id: user._id }, JWT_SECRET, { expiresIn: AUTH_REFRESH_TOKEN_EXPIRY as ms.StringValue || '7d' });
       res.cookie(
         'refreshToken',
@@ -59,19 +58,35 @@ export const register = (req: Request, res: Response, next: NextFunction) => {
     });
 };
 
-// export const login = (req: Request, res: Response, next: NextFunction) => {
-//   const { email, password } = req.body;
-//   return User.findUserByCredentials({ email })
-//     .then((user) => {
-//       if (!user) {
-//         return next(new UnauthorizedError('Неправильные почта или пароль'));
-//       }
-//       return bcrypt.compare(password, user.password);
-//     })
-//     .then((matched) => {
-//       if (!matched) {
-//         return next(new UnauthorizedError('Неправильные почта или пароль'));
-//       }
-//       res.send
-//     })
-// };
+export const login = (req: Request, res: Response, next: NextFunction) => {
+  const { email, password } = req.body;
+  return User.findUserByCredentials(email, password)
+    .then((user) => {
+      const accessToken = jwt.sign({ _id: user._id }, JWT_SECRET, { expiresIn: AUTH_ACCESS_TOKEN_EXPIRY as ms.StringValue || '10m' });
+      const refreshToken = jwt.sign({ _id: user._id }, JWT_SECRET, { expiresIn: AUTH_REFRESH_TOKEN_EXPIRY as ms.StringValue || '7d' });
+      res.cookie(
+        'refreshToken',
+        refreshToken,
+        {
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: false,
+          maxAge: ms(AUTH_REFRESH_TOKEN_EXPIRY as ms.StringValue),
+          path: '/',
+        } as CookieOptions,
+      );
+      user.tokens.push({ token: refreshToken });
+      return user.save()
+        .then(() => {
+          res.status(200).send({
+            user: {
+              email: user.email,
+              name: user.name,
+            },
+            success: true,
+            accessToken,
+          });
+        });
+    })
+    .catch(next);
+};
