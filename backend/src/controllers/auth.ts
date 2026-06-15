@@ -6,8 +6,8 @@ import {
 import mongoose from 'mongoose';
 import ms from 'ms';
 import bcrypt from 'bcrypt';
-import jwt, { TokenExpiredError } from 'jsonwebtoken';
-import UnauthorizedError from 'errors/unauthorized-error';
+import jwt from 'jsonwebtoken';
+import UnauthorizedError from '../errors/unauthorized-error';
 import NotFoundError from '../errors/not-found-error';
 import { AUTH_ACCESS_TOKEN_EXPIRY, AUTH_REFRESH_TOKEN_EXPIRY, JWT_SECRET } from '../config';
 import User from '../models/user';
@@ -95,19 +95,27 @@ export const login = (req: Request, res: Response, next: NextFunction) => {
 };
 
 export const logout = (req: Request, res: Response, next: NextFunction) => {
-  const cookie = req.cookies.refreshToken;
-  const payload = jwt.verify(cookie, JWT_SECRET) as {_id: string};
+  const token = req.cookies.refreshToken;
+  let payload;
+  try {
+    payload = jwt.verify(token, JWT_SECRET) as {_id: string};
+  } catch (error) {
+    next(new UnauthorizedError('Пользователь не авторизован'));
+    return;
+  }
+
   if (!mongoose.Types.ObjectId.isValid(payload._id)) {
     next(new BadRequestError('Некорректный индентификатор пользователя'));
     return;
   }
+
   User.findById(payload._id)
     .then((user) => {
       if (!user) {
         throw new NotFoundError('Пользователь не найден');
       }
       return user.updateOne(
-        { $pull: { tokens: { token: cookie } } },
+        { $pull: { tokens: { token } } },
       );
     })
     .then(() => {
@@ -119,21 +127,27 @@ export const logout = (req: Request, res: Response, next: NextFunction) => {
 
 export const refreshAccessToken = (req: Request, res: Response, next: NextFunction) => {
   const token = req.cookies.refreshToken;
+  let payload;
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as { _id: string };
-    if (!mongoose.Types.ObjectId.isValid(payload._id)) {
-      return next(new BadRequestError('Некорректный индентификатор пользователя'));
-    }
-    User.findById(payload._id)
-      .then((user) => {
-        if (!user) {
-          return next(new NotFoundError('Пользователь не найден'));
-        }
-        const accessToken = jwt.sign({ _id: user._id }, JWT_SECRET, { expiresIn: AUTH_ACCESS_TOKEN_EXPIRY as ms.StringValue || '10m' });
-        const refreshToken = jwt.sign({ _id: user._id }, JWT_SECRET, { expiresIn: AUTH_REFRESH_TOKEN_EXPIRY as ms.StringValue || '7d' });
-        res.cookie(
-          'refreshToken',
-          refreshToken,
+    payload = jwt.verify(token, JWT_SECRET) as { _id: string };
+  } catch (error) {
+    next(new UnauthorizedError('Пользователь не авторизован'));
+    return;
+  }
+  if (!mongoose.Types.ObjectId.isValid(payload._id)) {
+    next(new BadRequestError('Некорректный индентификатор пользователя'));
+    return;
+  }
+  User.findById(payload._id)
+    .then((user) => {
+      if (!user) {
+        return next(new NotFoundError('Пользователь не найден'));
+      }
+      const accessToken = jwt.sign({ _id: user._id }, JWT_SECRET, { expiresIn: AUTH_ACCESS_TOKEN_EXPIRY as ms.StringValue || '10m' });
+      const refreshToken = jwt.sign({ _id: user._id }, JWT_SECRET, { expiresIn: AUTH_REFRESH_TOKEN_EXPIRY as ms.StringValue || '7d' });
+      res.cookie(
+        'refreshToken',
+        refreshToken,
         {
           httpOnly: true,
           sameSite: 'lax',
@@ -141,40 +155,53 @@ export const refreshAccessToken = (req: Request, res: Response, next: NextFuncti
           maxAge: ms(AUTH_REFRESH_TOKEN_EXPIRY as ms.StringValue),
           path: '/',
         } as CookieOptions,
-        );
-        user.tokens.push({ token: refreshToken });
-        return user.save()
-          .then(() => {
-            res.status(201).send({
-              user: {
-                email,
-                name,
-              },
-              success: true,
-              accessToken,
-            });
+      );
+      user.tokens.push({ token: refreshToken });
+      return user.save()
+        .then(() => {
+          res.status(200).send({
+            user: {
+              email: user.email,
+              name: user.name,
+            },
+            success: true,
+            accessToken,
           });
-      });
-  } catch (error) {
-    next(new UnauthorizedError('Пользователь не авторизован'));
-  }
+        });
+    })
+    .catch(next);
 };
 
-// export const refreshAccessToken = (req: Request, res: Response, next: NextFunction) => {
-//   const token = req.cookies.refreshToken;
-//   try {
-//     const payload = jwt.verify(token, JWT_SECRET) as { _id: string };
-//     if (!mongoose.Types.ObjectId.isValid(payload._id)) {
-//       return next(new BadRequestError('Некорректный индентификатор пользователя'));
-//     }
-//     User.findById(payload._id)
-//       .then((user) => {
-//         if (!user) {
-//           return next(new NotFoundError('Пользователь не найден'));
-//         }
+export const getCurrentUser = (req: Request, res: Response, next: NextFunction) => {
+  const { authorization } = req.headers;
 
-//       });
-//   } catch (error) {
-//     next(new UnauthorizedError('Пользователь не авторизован'));
-//   }
-// };
+  if (!authorization || !authorization.startsWith('Bearer ')) {
+    next(new UnauthorizedError('Пользователь не авторизован'));
+    return;
+  }
+
+  const token = authorization.replace('Bearer ', '');
+  let payload;
+
+  try {
+    payload = jwt.verify(token, JWT_SECRET) as {_id: string};
+  } catch (error) {
+    next(new UnauthorizedError('Пользователь не авторизован'));
+    return;
+  }
+
+  User.findById(payload._id)
+    .then((user) => {
+      if (!user) {
+        return next(new NotFoundError('Пользователь не найден'));
+      }
+      return res.status(200).send({
+        user: {
+          name: user.name,
+          email: user.email,
+        },
+        success: true,
+      });
+    })
+    .catch(next);
+};

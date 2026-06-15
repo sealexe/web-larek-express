@@ -6,7 +6,7 @@ import ConflictError from '../errors/conflict-error';
 
 export const getProducts = (_req: Request, res: Response, next: NextFunction) => {
   Product.find({})
-    .then((products) => res.send({ items: products, total: products.length }))
+    .then((products) => res.status(200).send({ items: products, total: products.length }))
     .catch(next);
 };
 
