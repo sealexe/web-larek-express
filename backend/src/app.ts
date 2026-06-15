@@ -9,6 +9,7 @@ import { errors } from 'celebrate';
 import { DB_ADDRESS, PORT } from './config';
 import errorHandler from './middlewares/error-handler';
 import productsRouter from './routes/products';
+import uploadRouter from './routes/upload';
 import orderRouter from './routes/order';
 import userRouter from './routes/auth';
 import BadRequestError from './errors/bad-request-error';
@@ -29,6 +30,7 @@ app.use(requestLogger);
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/auth', userRouter);
 app.use('/product', productsRouter);
+app.use('/upload', uploadRouter);
 app.use('/order', orderRouter);
 
 app.use('*', (_req, _res, next) => next(new BadRequestError('Маршрут не найден')));
