@@ -14,6 +14,7 @@ import orderRouter from './routes/order';
 import userRouter from './routes/auth';
 import BadRequestError from './errors/bad-request-error';
 import { requestLogger, errorLogger, logger } from './middlewares/logger';
+import './utils/cron';
 
 const app = express();
 app.use(cookieParser());
