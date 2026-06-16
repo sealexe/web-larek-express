@@ -8,7 +8,7 @@ const uploadFile = (req: Request, res: Response, next: NextFunction) => {
     next(new BadRequestError('Файл не найден'));
     return;
   }
-  const filename = `${UPLOAD_PATH}/${file.filename}`;
+  const filename = `/${UPLOAD_PATH}/${file.filename}`;
   res.status(200).send({
     fileName: filename,
     originalName: file.originalname,

@@ -1,6 +1,9 @@
 // models/product.ts
 
 import { model, Schema } from 'mongoose';
+import fs from 'fs';
+import path from 'path';
+import { logger } from '../middlewares/logger';
 
 interface IProduct {
   title: string;
@@ -44,6 +47,11 @@ const productSchema = new Schema<IProduct>({
     required: false,
     default: null,
   },
+});
+
+productSchema.post('deleteOne', (doc) => {
+  fs.promises.unlink(path.join(__dirname, '../public', doc.image.fileName))
+    .catch((err) => logger.error('Ошибка удаления файла', err));
 });
 
 export default model<IProduct>('product', productSchema);

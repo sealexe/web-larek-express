@@ -6,7 +6,7 @@ import { UPLOAD_PATH_TEMP } from '../config';
 
 const storage = multer.diskStorage({
   destination(_req, _file, cb) {
-    cb(null, `/${UPLOAD_PATH_TEMP}`);
+    cb(null, `src/public/${UPLOAD_PATH_TEMP}`);
   },
   filename(_req, file, cb) {
     const uniqueName = crypto.randomUUID().replace(/-/g, '').slice(0, 8);
