@@ -8,5 +8,10 @@ export const {
   ORIGIN_ALLOW = 'http://localhost:5173',
   AUTH_REFRESH_TOKEN_EXPIRY = '7d',
   AUTH_ACCESS_TOKEN_EXPIRY = '10m',
-  JWT_SECRET = 'secret-key',
 } = process.env;
+
+if (!process.env.JWT_SECRET) {
+  throw new Error('Переменная окружения JWT_SECRET обязательна');
+}
+
+export const { JWT_SECRET } = process.env;

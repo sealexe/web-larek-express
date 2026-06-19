@@ -6,7 +6,7 @@ import cors from 'cors';
 import mongoose from 'mongoose';
 import path from 'path';
 import { errors } from 'celebrate';
-import { DB_ADDRESS, PORT } from './config';
+import { DB_ADDRESS, ORIGIN_ALLOW, PORT } from './config';
 import errorHandler from './middlewares/error-handler';
 import productsRouter from './routes/products';
 import uploadRouter from './routes/upload';
@@ -19,12 +19,15 @@ import './utils/cron';
 const app = express();
 app.use(cookieParser());
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: ORIGIN_ALLOW,
   credentials: true,
 }));
 app.use(express.json());
 
-mongoose.connect(DB_ADDRESS);
+mongoose.connect(DB_ADDRESS).catch((err) => {
+  logger.error('Ошибка подключения MongoDB', err);
+  process.exit(1);
+});
 
 app.use(requestLogger);
 
@@ -40,5 +43,5 @@ app.use(errors());
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-  logger.info('listening at port 3000');
+  logger.info(`listening at port ${PORT}`);
 });

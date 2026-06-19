@@ -14,47 +14,49 @@ import User from '../models/user';
 import ConflictError from '../errors/conflict-error';
 import BadRequestError from '../errors/bad-request-error';
 
+type UserDoc = Awaited<ReturnType<typeof User.findUserByCredentials>>;
+
+const MAX_REFRESH_TOKENS = 5;
+
+const issueTokens = (user: UserDoc, res: Response): Promise<string> => {
+  const accessToken = jwt.sign(
+    { _id: user._id },
+    JWT_SECRET,
+    { expiresIn: AUTH_ACCESS_TOKEN_EXPIRY as ms.StringValue },
+  );
+  const refreshToken = jwt.sign(
+    { _id: user._id },
+    JWT_SECRET,
+    { expiresIn: AUTH_REFRESH_TOKEN_EXPIRY as ms.StringValue },
+  );
+  res.cookie('refreshToken', refreshToken, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: false,
+    maxAge: ms(AUTH_REFRESH_TOKEN_EXPIRY as ms.StringValue),
+    path: '/',
+  } as CookieOptions);
+  user.tokens.push({ token: refreshToken });
+  if (user.tokens.length > MAX_REFRESH_TOKENS) {
+    user.tokens.splice(0, user.tokens.length - MAX_REFRESH_TOKENS);
+  }
+  return user.save().then(() => accessToken);
+};
+
 export const register = (req: Request, res: Response, next: NextFunction) => {
   const { name, email, password } = req.body;
-  if (!name || !email || !password) {
-    return next(new BadRequestError('Поля заполнены не верно'));
-  }
   return bcrypt.hash(password, 10)
-    .then((hash: string) => User.create({
-      name,
-      email,
-      password: hash,
+    .then((hash: string) => User.create({ name, email, password: hash }))
+    .then((user) => issueTokens(user, res).then((accessToken) => {
+      res.status(201).send({
+        user: { email: user.email, name: user.name },
+        success: true,
+        accessToken,
+      });
     }))
-    .then((user) => {
-      const accessToken = jwt.sign({ _id: user._id }, JWT_SECRET, { expiresIn: AUTH_ACCESS_TOKEN_EXPIRY as ms.StringValue || '10m' });
-      const refreshToken = jwt.sign({ _id: user._id }, JWT_SECRET, { expiresIn: AUTH_REFRESH_TOKEN_EXPIRY as ms.StringValue || '7d' });
-      res.cookie(
-        'refreshToken',
-        refreshToken,
-        {
-          httpOnly: true,
-          sameSite: 'lax',
-          secure: false,
-          maxAge: ms(AUTH_REFRESH_TOKEN_EXPIRY as ms.StringValue),
-          path: '/',
-        } as CookieOptions,
-      );
-      user.tokens.push({ token: refreshToken });
-      return user.save()
-        .then(() => {
-          res.status(201).send({
-            user: {
-              email,
-              name,
-            },
-            success: true,
-            accessToken,
-          });
-        });
-    })
     .catch((error) => {
       if (error.message.includes('E11000')) {
-        next(new ConflictError('Пользователь с таким email уже сущетсвует'));
+        next(new ConflictError('Пользователь с таким email уже существует'));
         return;
       }
       next(error);
@@ -64,33 +66,13 @@ export const register = (req: Request, res: Response, next: NextFunction) => {
 export const login = (req: Request, res: Response, next: NextFunction) => {
   const { email, password } = req.body;
   return User.findUserByCredentials(email, password)
-    .then((user) => {
-      const accessToken = jwt.sign({ _id: user._id }, JWT_SECRET, { expiresIn: AUTH_ACCESS_TOKEN_EXPIRY as ms.StringValue || '10m' });
-      const refreshToken = jwt.sign({ _id: user._id }, JWT_SECRET, { expiresIn: AUTH_REFRESH_TOKEN_EXPIRY as ms.StringValue || '7d' });
-      res.cookie(
-        'refreshToken',
-        refreshToken,
-        {
-          httpOnly: true,
-          sameSite: 'lax',
-          secure: false,
-          maxAge: ms(AUTH_REFRESH_TOKEN_EXPIRY as ms.StringValue),
-          path: '/',
-        } as CookieOptions,
-      );
-      user.tokens.push({ token: refreshToken });
-      return user.save()
-        .then(() => {
-          res.status(200).send({
-            user: {
-              email: user.email,
-              name: user.name,
-            },
-            success: true,
-            accessToken,
-          });
-        });
-    })
+    .then((user) => issueTokens(user, res).then((accessToken) => {
+      res.status(200).send({
+        user: { email: user.email, name: user.name },
+        success: true,
+        accessToken,
+      });
+    }))
     .catch(next);
 };
 
@@ -105,7 +87,7 @@ export const logout = (req: Request, res: Response, next: NextFunction) => {
   }
 
   if (!mongoose.Types.ObjectId.isValid(payload._id)) {
-    next(new BadRequestError('Некорректный индентификатор пользователя'));
+    next(new BadRequestError('Некорректный идентификатор пользователя'));
     return;
   }
 
@@ -135,62 +117,33 @@ export const refreshAccessToken = (req: Request, res: Response, next: NextFuncti
     return;
   }
   if (!mongoose.Types.ObjectId.isValid(payload._id)) {
-    next(new BadRequestError('Некорректный индентификатор пользователя'));
+    next(new BadRequestError('Некорректный идентификатор пользователя'));
     return;
   }
-  User.findById(payload._id)
+  User.findById(payload._id).select('+tokens.token')
     .then((user) => {
       if (!user) {
         return next(new NotFoundError('Пользователь не найден'));
       }
-      const accessToken = jwt.sign({ _id: user._id }, JWT_SECRET, { expiresIn: AUTH_ACCESS_TOKEN_EXPIRY as ms.StringValue || '10m' });
-      const refreshToken = jwt.sign({ _id: user._id }, JWT_SECRET, { expiresIn: AUTH_REFRESH_TOKEN_EXPIRY as ms.StringValue || '7d' });
-      res.cookie(
-        'refreshToken',
-        refreshToken,
-        {
-          httpOnly: true,
-          sameSite: 'lax',
-          secure: false,
-          maxAge: ms(AUTH_REFRESH_TOKEN_EXPIRY as ms.StringValue),
-          path: '/',
-        } as CookieOptions,
-      );
-      user.tokens.push({ token: refreshToken });
-      return user.save()
-        .then(() => {
-          res.status(200).send({
-            user: {
-              email: user.email,
-              name: user.name,
-            },
-            success: true,
-            accessToken,
-          });
+      const tokenExists = user.tokens.some((t) => t.token === token);
+      if (!tokenExists) {
+        return next(new UnauthorizedError('Токен отозван'));
+      }
+      return issueTokens(user, res).then((accessToken) => {
+        res.status(200).send({
+          user: { email: user.email, name: user.name },
+          success: true,
+          accessToken,
         });
+      });
     })
     .catch(next);
 };
 
 export const getCurrentUser = (req: Request, res: Response, next: NextFunction) => {
-  const { authorization } = req.headers;
+  const { _id } = (req as any).user;
 
-  if (!authorization || !authorization.startsWith('Bearer ')) {
-    next(new UnauthorizedError('Пользователь не авторизован'));
-    return;
-  }
-
-  const token = authorization.replace('Bearer ', '');
-  let payload;
-
-  try {
-    payload = jwt.verify(token, JWT_SECRET) as {_id: string};
-  } catch (error) {
-    next(new UnauthorizedError('Пользователь не авторизован'));
-    return;
-  }
-
-  User.findById(payload._id)
+  User.findById(_id)
     .then((user) => {
       if (!user) {
         return next(new NotFoundError('Пользователь не найден'));

@@ -2,6 +2,7 @@
 
 import multer from 'multer';
 import path from 'path';
+import crypto from 'crypto';
 import { UPLOAD_PATH_TEMP } from '../config';
 
 const storage = multer.diskStorage({

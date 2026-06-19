@@ -11,8 +11,33 @@ const productSchema = Joi.object({
   price: Joi.number().allow(null),
 });
 
-const validateProductBody = celebrate({
+export const validateProductBody = celebrate({
   [Segments.BODY]: productSchema,
 });
 
-export default validateProductBody;
+const registerSchema = Joi.object({
+  name: Joi.string().required().min(2).max(30),
+  email: Joi.string().required().email(),
+  password: Joi.string().required().min(6),
+});
+
+const loginSchema = Joi.object({
+  email: Joi.string().required().email(),
+  password: Joi.string().required(),
+});
+
+const refreshTokenCookieSchema = Joi.object({
+  refreshToken: Joi.string().required(),
+}).unknown(true);
+
+export const validateRegisterBody = celebrate({
+  [Segments.BODY]: registerSchema,
+});
+
+export const validateLoginBody = celebrate({
+  [Segments.BODY]: loginSchema,
+});
+
+export const validateRefreshTokenCookie = celebrate({
+  [Segments.COOKIES]: refreshTokenCookieSchema,
+});
