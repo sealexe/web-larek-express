@@ -38,8 +38,8 @@ app.use('/upload', uploadRouter);
 app.use('/order', orderRouter);
 
 app.use('*', (_req, _res, next) => next(new BadRequestError('Маршрут не найден')));
-app.use(errorLogger);
 app.use(errors());
+app.use(errorLogger);
 app.use(errorHandler);
 
 app.listen(PORT, () => {
