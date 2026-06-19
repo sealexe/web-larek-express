@@ -1,4 +1,5 @@
 import { celebrate, Joi, Segments } from 'celebrate';
+import PAYMENT_METHODS from '../utils/constants';
 
 const productSchema = Joi.object({
   title: Joi.string().required().min(2).max(30),
@@ -40,4 +41,17 @@ export const validateLoginBody = celebrate({
 
 export const validateRefreshTokenCookie = celebrate({
   [Segments.COOKIES]: refreshTokenCookieSchema,
+});
+
+const orderSchema = Joi.object({
+  payment: Joi.string().valid(...PAYMENT_METHODS).required(),
+  email: Joi.string().required().email(),
+  phone: Joi.string().required(),
+  address: Joi.string().required(),
+  total: Joi.number().required(),
+  items: Joi.array().items(Joi.string().hex().length(24)).min(1).required(),
+});
+
+export const validateOrderBody = celebrate({
+  [Segments.BODY]: orderSchema,
 });

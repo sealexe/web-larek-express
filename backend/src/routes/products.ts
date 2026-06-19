@@ -4,7 +4,7 @@ import { Router } from 'express';
 import {
   getProducts, createProduct, updateProduct, deleteProduct,
 } from '../controllers/products';
-import validateProductBody from '../middlewares/validations';
+import { validateProductBody } from '../middlewares/validations';
 import auth from '../middlewares/auth';
 
 const router = Router();
