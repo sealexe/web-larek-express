@@ -55,3 +55,11 @@ const orderSchema = Joi.object({
 export const validateOrderBody = celebrate({
   [Segments.BODY]: orderSchema,
 });
+
+const productIdSchema = Joi.object({
+  productId: Joi.string().hex().length(24).required(),
+});
+
+export const validateProductId = celebrate({
+  [Segments.PARAMS]: productIdSchema,
+});

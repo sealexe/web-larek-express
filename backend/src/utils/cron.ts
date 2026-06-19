@@ -4,7 +4,7 @@ import cron from 'node-cron';
 import { UPLOAD_PATH_TEMP } from '../config';
 import { logger } from '../middlewares/logger';
 
-const TEMP_DIR = path.resolve('src/public', UPLOAD_PATH_TEMP);
+const TEMP_DIR = path.join(__dirname, '../public', UPLOAD_PATH_TEMP);
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
 const cleanTempFiles = () => {

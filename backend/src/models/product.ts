@@ -49,7 +49,7 @@ const productSchema = new Schema<IProduct>({
   },
 });
 
-productSchema.post('deleteOne', (doc) => {
+productSchema.post('deleteOne', { document: true, query: false }, (doc: IProduct) => {
   fs.promises.unlink(path.join(__dirname, '../public', doc.image.fileName))
     .catch((err) => logger.error('Ошибка удаления файла', err));
 });

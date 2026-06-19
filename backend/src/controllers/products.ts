@@ -3,11 +3,10 @@
 import { NextFunction, Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
-import mongoose from 'mongoose';
+import { UPLOAD_PATH, UPLOAD_PATH_TEMP } from '../config';
 import Product from '../models/product';
 import ConflictError from '../errors/conflict-error';
 import NotFoundError from '../errors/not-found-error';
-import BadRequestError from '../errors/bad-request-error';
 
 export const getProducts = (_req: Request, res: Response, next: NextFunction) => {
   Product.find({})
@@ -21,8 +20,8 @@ export const createProduct = (req: Request, res: Response, next: NextFunction) =
   } = req.body;
 
   fs.promises.rename(
-    path.join(__dirname, '../public/temp', path.basename(image.fileName)),
-    path.join(__dirname, '../public/images', path.basename(image.fileName)),
+    path.join(__dirname, '../public', UPLOAD_PATH_TEMP, path.basename(image.fileName)),
+    path.join(__dirname, '../public', UPLOAD_PATH, path.basename(image.fileName)),
   )
     .then(() => Product.create({
       title, image, category, description, price,
@@ -42,54 +41,46 @@ export const createProduct = (req: Request, res: Response, next: NextFunction) =
 export const deleteProduct = (req: Request, res: Response, next: NextFunction) => {
   const id = req.params.productId;
 
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    next(new BadRequestError('Некорректный индентификатор товара'));
-    return;
-  }
-
-  Product.findByIdAndDelete(id)
+  Product.findById(id)
     .then((product) => {
       if (!product) {
-        return next(new NotFoundError('Товар не найден'));
+        next(new NotFoundError('Товар не найден'));
+        return;
       }
-      return res.status(200).send(product);
+      product.deleteOne().then(() => res.status(200).send(product));
     })
     .catch(next);
 };
 
-export const updateProduct = async (req: Request, res: Response, next: NextFunction) => {
+export const updateProduct = (req: Request, res: Response, next: NextFunction) => {
   const id = req.params.productId;
   const {
     title, image, category, description, price,
   } = req.body;
 
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    next(new BadRequestError('Некорректный индентификатор товара'));
-    return;
-  }
+  const moveFile = image
+    ? fs.promises.rename(
+      path.join(__dirname, '../public', UPLOAD_PATH_TEMP, path.basename(image.fileName)),
+      path.join(__dirname, '../public', UPLOAD_PATH, path.basename(image.fileName)),
+    )
+    : Promise.resolve();
 
-  try {
-    if (image) {
-      await fs.promises.rename(
-        path.join(__dirname, '../public/temp', path.basename(image.fileName)),
-        path.join(__dirname, '../public/images', path.basename(image.fileName)),
-      );
-    }
-    const product = await Product.findByIdAndUpdate(id, {
+  moveFile
+    .then(() => Product.findByIdAndUpdate(id, {
       title, image, category, description, price,
-    }, { new: true });
-
-    if (!product) {
-      next(new NotFoundError('Товар не найден'));
-      return;
-    }
-
-    res.status(200).send(product);
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('E11000')) {
-      next(new ConflictError('Товар с таким названием уже существует'));
-      return;
-    }
-    next(error);
-  }
+    }, { new: true, runValidators: true }))
+    .then((product) => {
+      if (!product) {
+        next(new NotFoundError('Товар не найден'));
+        return;
+      }
+      res.status(200).send(product);
+    })
+    .catch((error) => {
+      if (error instanceof Error && error.message.includes('E11000')) {
+        next(new ConflictError('Товар с таким названием уже существует'));
+        return;
+      }
+      next(error);
+    });
 };
