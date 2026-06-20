@@ -2,7 +2,7 @@
 	"compilerOptions": {
 		/* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */
 		"target": "es6",
-    "ignoreDeprecations": "6.0",
+    "ignoreDeprecations": "5.0",
 		/* Modules */
 		"module": "commonjs" /* Specify what module code is generated. */,
 		"baseUrl": "./src",

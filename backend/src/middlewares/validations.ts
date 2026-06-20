@@ -12,8 +12,23 @@ const productSchema = Joi.object({
   price: Joi.number().allow(null),
 });
 
+const productUpdateSchema = Joi.object({
+  title: Joi.string().min(2).max(30),
+  image: Joi.object({
+    fileName: Joi.string().required(),
+    originalName: Joi.string().required(),
+  }),
+  category: Joi.string(),
+  description: Joi.string().allow(''),
+  price: Joi.number().allow(null),
+}).min(1);
+
 export const validateProductBody = celebrate({
   [Segments.BODY]: productSchema,
+});
+
+export const validateProductUpdateBody = celebrate({
+  [Segments.BODY]: productUpdateSchema,
 });
 
 const registerSchema = Joi.object({

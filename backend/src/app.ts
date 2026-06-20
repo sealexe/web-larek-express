@@ -24,11 +24,6 @@ app.use(cors({
 }));
 app.use(express.json());
 
-mongoose.connect(DB_ADDRESS).catch((err) => {
-  logger.error('Ошибка подключения MongoDB', err);
-  process.exit(1);
-});
-
 app.use(requestLogger);
 
 app.use(express.static(path.join(__dirname, 'public')));
@@ -42,6 +37,13 @@ app.use(errors());
 app.use(errorLogger);
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  logger.info(`listening at port ${PORT}`);
-});
+mongoose.connect(DB_ADDRESS)
+  .then(() => {
+    app.listen(PORT, () => {
+      logger.info(`listening at port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    logger.error('Ошибка подключения MongoDB', err);
+    process.exit(1);
+  });
