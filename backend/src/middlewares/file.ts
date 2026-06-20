@@ -2,7 +2,7 @@
 
 import multer from 'multer';
 import path from 'path';
-import crypto from 'crypto';
+import { randomUUID } from 'crypto';
 import { UPLOAD_PATH_TEMP } from '../config';
 import BadRequestError from '../errors/bad-request-error';
 
@@ -11,7 +11,7 @@ const storage = multer.diskStorage({
     cb(null, path.join(__dirname, '../public', UPLOAD_PATH_TEMP));
   },
   filename(_req, file, cb) {
-    const uniqueName = crypto.randomUUID().replace(/-/g, '').slice(0, 8);
+    const uniqueName = randomUUID().replace(/-/g, '').slice(0, 8);
     const ext = path.extname(file.originalname);
     cb(null, uniqueName + ext);
   },
