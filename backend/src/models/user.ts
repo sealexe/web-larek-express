@@ -1,4 +1,5 @@
 import mongoose, { Model, model, Schema } from 'mongoose';
+import validator from 'validator';
 import bcrypt from 'bcrypt';
 import UnauthorizedError from '../errors/unauthorized-error';
 
@@ -30,6 +31,10 @@ const userSchema = new Schema<IUser, UserModel>({
     type: String,
     required: true,
     unique: true,
+    validate: {
+      validator: (v: string) => validator.isEmail(v),
+      message: 'Некорректный email',
+    },
   },
   password: {
     type: String,

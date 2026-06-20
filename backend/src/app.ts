@@ -12,7 +12,7 @@ import productsRouter from './routes/products';
 import uploadRouter from './routes/upload';
 import orderRouter from './routes/order';
 import userRouter from './routes/auth';
-import BadRequestError from './errors/bad-request-error';
+import NotFoundError from './errors/not-found-error';
 import { requestLogger, errorLogger, logger } from './middlewares/logger';
 import './utils/cron';
 
@@ -37,7 +37,7 @@ app.use('/product', productsRouter);
 app.use('/upload', uploadRouter);
 app.use('/order', orderRouter);
 
-app.use('*', (_req, _res, next) => next(new BadRequestError('Маршрут не найден')));
+app.use('*', (_req, _res, next) => next(new NotFoundError('Маршрут не найден')));
 app.use(errors());
 app.use(errorLogger);
 app.use(errorHandler);
